@@ -1,11 +1,9 @@
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
+from django.urls import path
 from . import views
 
-# Create a router and register the ViewSet
-router = DefaultRouter()
-router.register(r'', views.SurveyViewSet, basename='survey')
-
 urlpatterns = [
-    path('', include(router.urls)),  
+    path('questions/', views.QuestionListView.as_view(), name='question_list'),
+    path('responses/', views.ResponseCreateView.as_view(), name='response_create'),  # PUT
+    path('responses/', views.ResponseListView.as_view(), name='response_list'),     # GET
+    path('certificates/<int:pk>/', views.CertificateDownloadView.as_view(), name='certificate_download'),
 ]

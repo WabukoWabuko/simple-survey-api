@@ -1,52 +1,51 @@
-from rest_framework import viewsets, status
-from rest_framework.decorators import action
+from rest_framework import generics, status
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from django.http import FileResponse
 from .models import Question, Response, Certificate
 from .serializers import QuestionSerializer, ResponseSerializer
 import os
 
-class SurveyViewSet(viewsets.ViewSet):
-    # GET /api/questions/
-    @action(detail=False, methods=['GET'])
-    def questions(self, request):
-        questions = Question.objects.all()
-        serializer = QuestionSerializer(questions, many=True)
-        return Response(serializer.data)
+# GET /api/questions/
+class QuestionListView(generics.ListAPIView):
+    queryset = Question.objects.all()
+    serializer_class = QuestionSerializer
 
-    # PUT /api/questions/responses/
-    @action(detail=False, methods=['PUT'])
-    def submit_response(self, request):
-        serializer = ResponseSerializer(data=request.data)
-        if serializer.is_valid():
-            response = serializer.save()
-            if request.FILES:
-                for file in request.FILES.getlist('certificates'):
-                    cert = Certificate(response=response, file_path=file.name)
-                    cert.save()
-                    with open(f'media/{file.name}', 'wb+') as destination:
-                        for chunk in file.chunks():
-                            destination.write(chunk)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+# PUT /api/responses/
+class ResponseCreateView(generics.CreateAPIView):
+    queryset = Response.objects.all()
+    serializer_class = ResponseSerializer
 
-    # GET /api/questions/responses/
-    @action(detail=False, methods=['GET'])
-    def responses(self, request):
+    def perform_create(self, serializer):
+        response = serializer.save()
+        if self.request.FILES:
+            for file in self.request.FILES.getlist('certificates'):
+                cert = Certificate(response=response, file_path=file.name)
+                cert.save()
+                with open(f'media/{file.name}', 'wb+') as destination:
+                    for chunk in file.chunks():
+                        destination.write(chunk)
+
+# GET /api/responses/
+class ResponseListView(generics.ListAPIView):
+    serializer_class = ResponseSerializer
+
+    def get_queryset(self):
+        email_filter = self.request.GET.get('email_address', None)
+        queryset = Response.objects.all()
+        if email_filter:
+            queryset = queryset.filter(email_address=email_filter)
+        return queryset
+
+    def list(self, request, *args, **kwargs):
         page = int(request.GET.get('page', 1))
         page_size = 10
-        email_filter = request.GET.get('email_address', None)
-
-        responses = Response.objects.all()
-        if email_filter:
-            responses = responses.filter(email_address=email_filter)
-
-        total_count = responses.count()
+        queryset = self.get_queryset()
+        total_count = queryset.count()
         start = (page - 1) * page_size
         end = start + page_size
-        paginated_responses = responses[start:end]
-
-        serializer = ResponseSerializer(paginated_responses, many=True)
+        paginated_queryset = queryset[start:end]
+        serializer = self.get_serializer(paginated_queryset, many=True)
         response_data = {
             'current_page': page,
             'last_page': (total_count + page_size - 1) // page_size,
@@ -56,9 +55,9 @@ class SurveyViewSet(viewsets.ViewSet):
         }
         return Response(response_data)
 
-    # GET /api/questions/responses/certificates/<id>/
-    @action(detail=True, methods=['GET'], url_path='responses/certificates')
-    def download_certificate(self, request, pk=None):
+# GET /api/certificates/<id>/
+class CertificateDownloadView(APIView):
+    def get(self, request, pk, *args, **kwargs):
         try:
             cert = Certificate.objects.get(id=pk)
             file_path = f'media/{cert.file_path}'
