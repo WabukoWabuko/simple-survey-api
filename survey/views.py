@@ -1,5 +1,5 @@
 from rest_framework.decorators import api_view
-from rest_framework.response import Response
+from rest_framework.response import Response  
 from rest_framework import status
 from django.http import FileResponse
 from .models import Question, Response, Certificate
@@ -11,7 +11,7 @@ import os
 def get_questions(request):
     questions = Question.objects.all()
     serializer = QuestionSerializer(questions, many=True)
-    return Response(serializer.data)
+    return Response(serializer.data)  
 
 # PUT /api/questions/responses
 @api_view(['PUT'])
@@ -19,12 +19,10 @@ def submit_response(request):
     serializer = ResponseSerializer(data=request.data)
     if serializer.is_valid():
         response = serializer.save()
-        # Handle file uploads
         if request.FILES:
             for file in request.FILES.getlist('certificates'):
                 cert = Certificate(response=response, file_path=file.name)
                 cert.save()
-                # Save file to disk (simple for now)
                 with open(f'media/{file.name}', 'wb+') as destination:
                     for chunk in file.chunks():
                         destination.write(chunk)
