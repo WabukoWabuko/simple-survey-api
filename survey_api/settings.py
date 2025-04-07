@@ -134,3 +134,18 @@ MEDIA_URL = '/media/'
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000", # This is to allow port 3000 to access the API
 ]
+
+# This Logging thing helps in debugging
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'ERROR',
+    },
+}
