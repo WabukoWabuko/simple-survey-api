@@ -11,20 +11,21 @@ class QuestionListView(generics.ListAPIView):
     queryset = Question.objects.all()
     serializer_class = QuestionSerializer
 
-# PUT /api/responses/
-class ResponseCreateView(generics.CreateAPIView):
-    queryset = Response.objects.all()
-    serializer_class = ResponseSerializer
-
-    def perform_create(self, serializer):
-        response = serializer.save()
-        if self.request.FILES:
-            for file in self.request.FILES.getlist('certificates'):
-                cert = Certificate(response=response, file_path=file.name)
-                cert.save()
-                with open(f'media/{file.name}', 'wb+') as destination:
-                    for chunk in file.chunks():
-                        destination.write(chunk)
+# PUT /api/responses/create/
+class ResponseCreateView(APIView):  # Switch to APIView for custom PUT
+    def put(self, request, *args, **kwargs):
+        serializer = ResponseSerializer(data=request.data)
+        if serializer.is_valid():
+            response = serializer.save()
+            if request.FILES:
+                for file in request.FILES.getlist('certificates'):
+                    cert = Certificate(response=response, file_path=file.name)
+                    cert.save()
+                    with open(f'media/{file.name}', 'wb+') as destination:
+                        for chunk in file.chunks():
+                            destination.write(chunk)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 # GET /api/responses/
 class ResponseListView(generics.ListAPIView):
