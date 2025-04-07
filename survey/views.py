@@ -1,22 +1,22 @@
-from rest_framework.decorators import api_view
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework import status
 from django.http import FileResponse
 from .models import Question, Response, Certificate
 from .serializers import QuestionSerializer, ResponseSerializer
 import os
 
-# GET /api/questions
-@api_view(['GET'])
-def get_questions(request):
-    questions = Question.objects.all()
-    serializer = QuestionSerializer(questions, many=True)
-    return Response(serializer.data)
+class SurveyViewSet(viewsets.ViewSet):
+    # GET /api/questions/
+    @action(detail=False, methods=['GET'])
+    def questions(self, request):
+        questions = Question.objects.all()
+        serializer = QuestionSerializer(questions, many=True)
+        return Response(serializer.data)
 
-# PUT and GET /api/questions/responses
-@api_view(['PUT', 'GET'])
-def handle_responses(request):
-    if request.method == 'PUT':
+    # PUT /api/questions/responses/
+    @action(detail=False, methods=['PUT'])
+    def submit_response(self, request):
         serializer = ResponseSerializer(data=request.data)
         if serializer.is_valid():
             response = serializer.save()
@@ -29,8 +29,10 @@ def handle_responses(request):
                             destination.write(chunk)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    elif request.method == 'GET':
+
+    # GET /api/questions/responses/
+    @action(detail=False, methods=['GET'])
+    def responses(self, request):
         page = int(request.GET.get('page', 1))
         page_size = 10
         email_filter = request.GET.get('email_address', None)
@@ -54,14 +56,14 @@ def handle_responses(request):
         }
         return Response(response_data)
 
-# GET /api/questions/responses/certificates/{id}
-@api_view(['GET'])
-def download_certificate(request, id):
-    try:
-        cert = Certificate.objects.get(id=id)
-        file_path = f'media/{cert.file_path}'
-        if os.path.exists(file_path):
-            return FileResponse(open(file_path, 'rb'), as_attachment=True, filename=cert.file_path)
-        return Response({'error': 'File not found'}, status=status.HTTP_404_NOT_FOUND)
-    except Certificate.DoesNotExist:
-        return Response({'error': 'Certificate not found'}, status=status.HTTP_404_NOT_FOUND)
+    # GET /api/questions/responses/certificates/<id>/
+    @action(detail=True, methods=['GET'], url_path='responses/certificates')
+    def download_certificate(self, request, pk=None):
+        try:
+            cert = Certificate.objects.get(id=pk)
+            file_path = f'media/{cert.file_path}'
+            if os.path.exists(file_path):
+                return FileResponse(open(file_path, 'rb'), as_attachment=True, filename=cert.file_path)
+            return Response({'error': 'File not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Certificate.DoesNotExist:
+            return Response({'error': 'Certificate not found'}, status=status.HTTP_404_NOT_FOUND)
