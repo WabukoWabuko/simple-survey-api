@@ -12,7 +12,7 @@ class QuestionListView(generics.ListAPIView):
     serializer_class = QuestionSerializer
 
 # PUT /api/responses/create/
-class ResponseCreateView(APIView):  # Switch to APIView for custom PUT
+class ResponseCreateView(APIView):
     def put(self, request, *args, **kwargs):
         serializer = ResponseSerializer(data=request.data)
         if serializer.is_valid():
@@ -39,22 +39,25 @@ class ResponseListView(generics.ListAPIView):
         return queryset
 
     def list(self, request, *args, **kwargs):
-        page = int(request.GET.get('page', 1))
-        page_size = 10
-        queryset = self.get_queryset()
-        total_count = queryset.count()
-        start = (page - 1) * page_size
-        end = start + page_size
-        paginated_queryset = queryset[start:end]
-        serializer = self.get_serializer(paginated_queryset, many=True)
-        response_data = {
-            'current_page': page,
-            'last_page': (total_count + page_size - 1) // page_size,
-            'page_size': page_size,
-            'total_count': total_count,
-            'question_responses': serializer.data
-        }
-        return Response(response_data)
+        try:
+            page = int(request.GET.get('page', 1))
+            page_size = 10
+            queryset = self.get_queryset()
+            total_count = queryset.count()
+            start = (page - 1) * page_size
+            end = start + page_size
+            paginated_queryset = queryset[start:end]
+            serializer = self.get_serializer(paginated_queryset, many=True)
+            response_data = {
+                'current_page': page,
+                'last_page': (total_count + page_size - 1) // page_size,
+                'page_size': page_size,
+                'total_count': total_count,
+                'question_responses': serializer.data
+            }
+            return Response(response_data)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # GET /api/certificates/<id>/
 class CertificateDownloadView(APIView):
